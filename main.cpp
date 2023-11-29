@@ -7,29 +7,20 @@
 
 */
 
-#ifdef WIN32
-#include "ddrawkit.h"
-#else
-#include "sdlkit.h"
-#endif
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#ifdef WIN32
-#include "DPInput.h"      // WIN32
-#include "fileselector.h" // WIN32
-#include "pa/portaudio.h"
-#else
-#include "SDL.h"
-#endif
 
 #define rnd(n) (rand() % (n + 1))
 
 #define PI 3.14159265f
+constexpr const auto ddkpitch = 800;
 
 float frnd(float range) { return (float)rnd(10000) / 10000 * range; }
+
+using DWORD = unsigned;
 
 struct Spriteset {
   DWORD *data;
@@ -497,56 +488,29 @@ void SynthSample(int length, float *buffer, FILE *file) {
   }
 }
 
+class DPInput {
+public:
+  DPInput(int, int) {}
+  static void Update() {}
+  static void KeyPressed(auto key) {}
+};
 DPInput *input;
-#ifdef WIN32
-PortAudioStream *stream;
-#endif
 bool mute_stream;
 
-#ifdef WIN32
-// ancient portaudio stuff
-static int AudioCallback(void *inputBuffer, void *outputBuffer,
-                         unsigned long framesPerBuffer, PaTimestamp outTime,
-                         void *userData) {
-  float *out = (float *)outputBuffer;
-  float *in = (float *)inputBuffer;
-  (void)outTime;
-
-  if (playing_sample && !mute_stream)
-    SynthSample(framesPerBuffer, out, NULL);
-  else
-    for (int i = 0; i < framesPerBuffer; i++)
-      *out++ = 0.0f;
-
-  return 0;
-}
-#else
-// lets use SDL in stead
-static void SDLAudioCallback(void *userdata, Uint8 *stream, int len) {
+void audio_callback(float *buf, int size) {
   if (playing_sample && !mute_stream) {
-    unsigned int l = len / 2;
-    float fbuf[l];
-    memset(fbuf, 0, sizeof(fbuf));
-    SynthSample(l, fbuf, NULL);
-    while (l--) {
-      float f = fbuf[l];
-      if (f < -1.0)
-        f = -1.0;
-      if (f > 1.0)
-        f = 1.0;
-      ((Sint16 *)stream)[l] = (Sint16)(f * 32767);
-    }
-  } else
-    memset(stream, 0, len);
+    SynthSample(size, buf, NULL);
+  } else {
+    for (int i = 0; i < size; i++)
+      *buf++ = 0.0f;
+  }
 }
-#endif
 
 bool ExportWAV(char *filename) {
   FILE *foutput = fopen(filename, "wb");
   if (!foutput)
     return false;
   // write wav header
-  char string[32];
   unsigned int dword = 0;
   unsigned short word = 0;
   fwrite("RIFF", 4, 1, foutput); // "RIFF"
