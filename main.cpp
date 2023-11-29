@@ -11,12 +11,44 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #define rnd(n) (rand() % (n + 1))
 
 #define PI 3.14159265f
+
+#define FileSelectorLoad(x, file, y) false
+#define FileSelectorSave(x, file, y) false
+#define DIK_SPACE 0
+#define DIK_RETURN 0
+#define DDK_WINDOW 0
+#define Sleep(x)
+
+#define hWndMain 0
+#define hInstanceMain 0
 constexpr const auto ddkpitch = 800;
+
+unsigned *ddkscreen32;
+int mouse_x, mouse_y, mouse_px, mouse_py;
+bool mouse_left = false, mouse_right = false, mouse_middle = false;
+bool mouse_leftclick = false, mouse_rightclick = false,
+     mouse_middleclick = false;
+
+void ddkLock();
+void ddkUnlock();
+void ddkSetMode(int width, int height, int bpp, int refreshrate, int fullscreen,
+                const char *title);
+void InitAudio();
+
+// TODO: main
+
+class DPInput {
+public:
+  DPInput(int, int) {}
+  static void Update() {}
+  static bool KeyPressed(auto key) { return false; }
+};
 
 float frnd(float range) { return (float)rnd(10000) / 10000 * range; }
 
@@ -488,12 +520,6 @@ void SynthSample(int length, float *buffer, FILE *file) {
   }
 }
 
-class DPInput {
-public:
-  DPInput(int, int) {}
-  static void Update() {}
-  static void KeyPressed(auto key) {}
-};
 DPInput *input;
 bool mute_stream;
 
@@ -955,14 +981,14 @@ void DrawScreen() {
       ExportWAV(filename);
   }
   char str[10];
-  sprintf(str, "%i HZ", wav_freq);
+  snprintf(str, 10, "%i HZ", wav_freq);
   if (Button(490, 410, false, str, 18)) {
     if (wav_freq == 44100)
       wav_freq = 22050;
     else
       wav_freq = 44100;
   }
-  sprintf(str, "%i-BIT", wav_bits);
+  snprintf(str, 10, "%i-BIT", wav_bits);
   if (Button(490, 440, false, str, 19)) {
     if (wav_bits == 16)
       wav_bits = 8;
@@ -1092,39 +1118,11 @@ void ddkInit() {
 
   ResetParams();
 
-#ifdef WIN32
-  // Init PortAudio
-  SetEnvironmentVariable("PA_MIN_LATENCY_MSEC", "75"); // WIN32
-  Pa_Initialize();
-  Pa_OpenDefaultStream(&stream, 0, 1,
-                       paFloat32, // output type
-                       44100,
-                       512, // samples per buffer
-                       0,   // # of buffers
-                       AudioCallback, NULL);
-  Pa_StartStream(stream);
-#else
-  SDL_AudioSpec des;
-  des.freq = 44100;
-  des.format = AUDIO_S16SYS;
-  des.channels = 1;
-  des.samples = 512;
-  des.callback = SDLAudioCallback;
-  des.userdata = NULL;
-  VERIFY(!SDL_OpenAudio(&des, NULL));
-  SDL_PauseAudio(0);
-#endif
+  InitAudio();
 }
 
 void ddkFree() {
   delete input;
   free(ld48.data);
   free(font.data);
-
-#ifdef WIN32
-  // Close PortAudio
-  Pa_StopStream(stream);
-  Pa_CloseStream(stream);
-  Pa_Terminate();
-#endif
 }
