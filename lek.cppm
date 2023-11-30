@@ -15,8 +15,7 @@ bool mouse_left = false, mouse_right = false, mouse_middle = false;
 bool mouse_leftclick = false, mouse_rightclick = false,
      mouse_middleclick = false;
 
-unsigned buf[640 * 480];
-void ddkLock() { ddkscreen32 = buf; }
+void ddkLock() {}
 void ddkUnlock() {}
 void ddkSetMode(int width, int height, int bpp, int refreshrate, int fullscreen,
                 const char *title) {
@@ -39,25 +38,28 @@ extern "C" void ddkFree();
 
 class thread : public voo::casein_thread {
 protected:
-  void create_window(const casein::events::create_window &e) override {
-    voo::casein_thread::create_window(e);
-    ddkInit();
-  }
-  void timer(const casein::events::timer &e) override { ddkCalcFrame(); }
-  void quit(const casein::events::quit &e) override {
-    ddkFree();
-    voo::casein_thread::quit(e);
-  }
-
   void run() override {
     voo::device_and_queue dq{"sfxr", native_ptr()};
     voo::one_quad quad{dq.physical_device()};
+
+    vee::descriptor_set_layout dsl =
+        vee::create_descriptor_set_layout({vee::dsl_fragment_sampler()});
+    vee::descriptor_pool dp =
+        vee::create_descriptor_pool(1, {vee::combined_image_sampler(1)});
+    vee::descriptor_set dset = vee::allocate_descriptor_set(*dp, *dsl);
+
+    vee::sampler smp = vee::create_sampler(vee::nearest_sampler);
+
+    voo::h2l_image img{dq.physical_device(), 640, 480};
+    vee::update_descriptor_set(dset, 0, img.iv(), *smp);
+
+    ddkInit();
 
     auto cb = vee::allocate_primary_command_buffer(dq.command_pool());
     while (!interrupted()) {
       voo::swapchain_and_stuff sw{dq};
 
-      auto pl = vee::create_pipeline_layout();
+      auto pl = vee::create_pipeline_layout({*dsl});
       auto gp = vee::create_graphics_pipeline({
           .pipeline_layout = *pl,
           .render_pass = sw.render_pass(),
@@ -74,10 +76,18 @@ protected:
         sw.acquire_next_image();
 
         {
+          auto m = img.mapmem();
+          lek::ddkscreen32 = static_cast<unsigned *>(*m);
+          ddkCalcFrame();
+        }
+
+        {
           voo::cmd_buf_one_time_submit pcb{cb};
+          img.run(pcb);
 
           auto scb = sw.cmd_render_pass(cb);
           vee::cmd_bind_gr_pipeline(cb, *gp);
+          vee::cmd_bind_descriptor_set(cb, *pl, 0, dset);
           quad.run(scb, 0);
         }
 
@@ -87,6 +97,8 @@ protected:
 
       vee::device_wait_idle();
     }
+
+    ddkFree();
   }
 };
 
