@@ -1060,7 +1060,7 @@ extern "C" bool ddkCalcFrame() {
   return true;
 }
 
-void ddkInit() {
+extern "C" void ddkInit() {
   srand(time(NULL));
 
   ddkSetMode(640, 480, 32, 60, DDK_WINDOW,
@@ -1101,7 +1101,7 @@ void ddkInit() {
   InitAudio();
 }
 
-void ddkFree() {
+extern "C" void ddkFree() {
   delete input;
   free(ld48.data);
   free(font.data);
