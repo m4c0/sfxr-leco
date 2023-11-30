@@ -15,7 +15,8 @@ bool mouse_left = false, mouse_right = false, mouse_middle = false;
 bool mouse_leftclick = false, mouse_rightclick = false,
      mouse_middleclick = false;
 
-void ddkLock() {}
+bool redrawing = false;
+void ddkLock() { redrawing = true; }
 void ddkUnlock() {}
 void ddkSetMode(int width, int height, int bpp, int refreshrate, int fullscreen,
                 const char *title) {
@@ -73,17 +74,21 @@ protected:
 
       resized() = false;
       while (!interrupted() && !resized()) {
-        sw.acquire_next_image();
-
         {
           auto m = img.mapmem();
           lek::ddkscreen32 = static_cast<unsigned *>(*m);
+          lek::redrawing = false;
           ddkCalcFrame();
+          for (auto x = 0; x < 480 * 640; x++)
+            lek::ddkscreen32[x] |= 0xff000000;
         }
+
+        sw.acquire_next_image();
 
         {
           voo::cmd_buf_one_time_submit pcb{cb};
-          img.run(pcb);
+          if (lek::redrawing)
+            img.run(pcb);
 
           auto scb = sw.cmd_render_pass(cb);
           vee::cmd_bind_gr_pipeline(cb, *gp);
