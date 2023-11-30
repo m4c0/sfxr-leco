@@ -1,4 +1,5 @@
 #pragma leco app
+import lek;
 
 /*
 
@@ -27,28 +28,7 @@
 
 #define hWndMain 0
 #define hInstanceMain 0
-constexpr const auto ddkpitch = 800;
-
-unsigned *ddkscreen32;
-int mouse_x, mouse_y, mouse_px, mouse_py;
-bool mouse_left = false, mouse_right = false, mouse_middle = false;
-bool mouse_leftclick = false, mouse_rightclick = false,
-     mouse_middleclick = false;
-
-void ddkLock();
-void ddkUnlock();
-void ddkSetMode(int width, int height, int bpp, int refreshrate, int fullscreen,
-                const char *title);
-void InitAudio();
-
-// TODO: main
-
-class DPInput {
-public:
-  DPInput(int, int) {}
-  static void Update() {}
-  static bool KeyPressed(auto key) { return false; }
-};
+using namespace lek;
 
 float frnd(float range) { return (float)rnd(10000) / 10000 * range; }
 
@@ -1060,7 +1040,7 @@ void DrawScreen() {
 
 bool keydown = false;
 
-bool ddkCalcFrame() {
+extern "C" bool ddkCalcFrame() {
   input->Update(); // WIN32 (for keyboard input)
 
   if (input->KeyPressed(DIK_SPACE) ||
