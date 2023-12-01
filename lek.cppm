@@ -2,6 +2,7 @@
 #pragma leco add_shader "lek.vert"
 export module lek;
 import casein;
+import siaudio;
 import silog;
 import vee;
 import voo;
@@ -23,7 +24,15 @@ void ddkSetMode(int width, int height, int bpp, int refreshrate, int fullscreen,
   silog::assert(width == 640 && height == 480, "expecting 640x480 window");
   // init texture? pretend we care?
 }
-void InitAudio() {}
+
+extern "C" void audio_callback(float *buf, int size);
+class audio : public siaudio::os_streamer {
+public:
+  void fill_buffer(float *f, unsigned num_samples) override {
+    audio_callback(f, num_samples);
+  }
+};
+void InitAudio() { static audio a{}; }
 
 class DPInput {
 public:

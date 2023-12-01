@@ -503,7 +503,7 @@ void SynthSample(int length, float *buffer, FILE *file) {
 DPInput *input;
 bool mute_stream;
 
-void audio_callback(float *buf, int size) {
+extern "C" void audio_callback(float *buf, int size) {
   if (playing_sample && !mute_stream) {
     SynthSample(size, buf, NULL);
   } else {
