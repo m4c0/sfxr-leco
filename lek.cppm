@@ -47,6 +47,13 @@ protected:
     m_sh = (*e).height;
     voo::casein_thread::resize_window(e);
   }
+  void mouse_down(const casein::events::mouse_down &e) override {
+    lek::mouse_left = true;
+    lek::mouse_leftclick = true;
+  }
+  void mouse_up(const casein::events::mouse_up &e) override {
+    lek::mouse_left = false;
+  }
   void mouse_move(const casein::events::mouse_move &e) override {
     using namespace lek;
 
@@ -96,6 +103,7 @@ protected:
         {
           lek::redrawing = false;
           ddkCalcFrame();
+          lek::mouse_leftclick = false;
           if (lek::redrawing) {
             auto m = img.mapmem();
             auto mm = static_cast<unsigned *>(*m);
