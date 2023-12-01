@@ -38,7 +38,24 @@ extern "C" bool ddkCalcFrame();
 extern "C" void ddkFree();
 
 class thread : public voo::casein_thread {
+  unsigned m_sw;
+  unsigned m_sh;
+
 protected:
+  void resize_window(const casein::events::resize_window &e) override {
+    m_sw = (*e).width;
+    m_sh = (*e).height;
+    voo::casein_thread::resize_window(e);
+  }
+  void mouse_move(const casein::events::mouse_move &e) override {
+    using namespace lek;
+
+    mouse_px = mouse_x;
+    mouse_x = (*e).x * 640 / m_sw;
+
+    mouse_py = mouse_y;
+    mouse_y = (*e).y * 480 / m_sh;
+  }
   void run() override {
     voo::device_and_queue dq{"sfxr", native_ptr()};
     voo::one_quad quad{dq.physical_device()};
@@ -74,19 +91,18 @@ protected:
 
       resized() = false;
       while (!interrupted() && !resized()) {
+        sw.acquire_next_image();
+
         {
           auto m = img.mapmem();
           lek::ddkscreen32 = static_cast<unsigned *>(*m);
           lek::redrawing = false;
           ddkCalcFrame();
           if (lek::redrawing) {
-            vee::device_wait_idle();
             for (auto x = 0; x < 480 * 640; x++)
               lek::ddkscreen32[x] |= 0xff000000;
           }
         }
-
-        sw.acquire_next_image();
 
         {
           voo::cmd_buf_one_time_submit pcb{cb};
