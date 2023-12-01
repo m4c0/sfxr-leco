@@ -9,7 +9,7 @@ import voo;
 export namespace lek {
 constexpr const auto ddkpitch = 640;
 
-unsigned *ddkscreen32;
+unsigned ddkscreen32[640 * 480];
 int mouse_x, mouse_y, mouse_px, mouse_py;
 bool mouse_left = false, mouse_right = false, mouse_middle = false;
 bool mouse_leftclick = false, mouse_rightclick = false,
@@ -94,20 +94,19 @@ protected:
         sw.acquire_next_image();
 
         {
-          auto m = img.mapmem();
-          lek::ddkscreen32 = static_cast<unsigned *>(*m);
           lek::redrawing = false;
           ddkCalcFrame();
           if (lek::redrawing) {
+            auto m = img.mapmem();
+            auto mm = static_cast<unsigned *>(*m);
             for (auto x = 0; x < 480 * 640; x++)
-              lek::ddkscreen32[x] |= 0xff000000;
+              mm[x] = lek::ddkscreen32[x] | 0xff000000;
           }
         }
 
         {
           voo::cmd_buf_one_time_submit pcb{cb};
-          if (lek::redrawing)
-            img.run(pcb);
+          img.run(pcb);
 
           auto scb = sw.cmd_render_pass(cb);
           vee::cmd_bind_gr_pipeline(cb, *gp);
