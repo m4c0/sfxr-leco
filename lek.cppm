@@ -79,8 +79,11 @@ protected:
           lek::ddkscreen32 = static_cast<unsigned *>(*m);
           lek::redrawing = false;
           ddkCalcFrame();
-          for (auto x = 0; x < 480 * 640; x++)
-            lek::ddkscreen32[x] |= 0xff000000;
+          if (lek::redrawing) {
+            vee::device_wait_idle();
+            for (auto x = 0; x < 480 * 640; x++)
+              lek::ddkscreen32[x] |= 0xff000000;
+          }
         }
 
         sw.acquire_next_image();
