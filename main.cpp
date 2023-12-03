@@ -15,6 +15,7 @@ import lek;
 #include <string.h>
 #include <time.h>
 
+// globals and params{{{1
 #define rnd(n) (rand() % (n + 1))
 
 #define PI 3.14159265f
@@ -167,7 +168,9 @@ void ResetParams() {
   p_arp_speed = 0.0f;
   p_arp_mod = 0.0f;
 }
+// }}}1
 
+// load/save settings{{{1
 bool LoadSettings(char *filename) {
   FILE *file = fopen(filename, "rb");
   if (!file)
@@ -268,6 +271,7 @@ bool SaveSettings(char *filename) {
   fclose(file);
   return true;
 }
+// }}}1
 
 void ResetSample(bool restart) {
   if (!restart)
@@ -500,6 +504,7 @@ void SynthSample(int length, float *buffer, FILE *file) {
   }
 }
 
+// glue, export, ui widgets {{{1
 DPInput *input;
 bool mute_stream;
 
@@ -638,6 +643,7 @@ bool Button(int x, int y, bool highlight, const char *text, int id) {
     return true;
   return false;
 }
+// }}}1
 
 int drawcount = 0;
 
@@ -675,6 +681,7 @@ void DrawScreen() {
 
   ClearScreen(0xC0B090);
 
+  // generators {{{1
   DrawText(10, 10, 0x504030, "GENERATOR");
   for (int i = 0; i < 7; i++) {
     if (Button(5, 35 + i * 30, false, categories[i].name, 300 + i)) {
@@ -826,6 +833,9 @@ void DrawScreen() {
       PlaySample();
     }
   }
+  // }}}1
+
+  // settings {{{1
   DrawBar(110, 0, 2, 480, 0x000000);
   DrawText(120, 10, 0x504030, "MANUAL SETTINGS");
   DrawSprite(ld48, 8, 440, 0, 0xB0A080);
@@ -838,9 +848,11 @@ void DrawScreen() {
     wave_type = 2;
   if (Button(490, 30, wave_type == 3, "NOISE", 13))
     wave_type = 3;
+  // }}}1
 
   bool do_play = false;
 
+  // randomize/mutate {{{1
   DrawBar(5 - 1 - 1, 412 - 1 - 1, 102 + 2, 19 + 2, 0x000000);
   if (Button(5, 412, false, "RANDOMIZE", 40)) {
     p_base_freq = pow(frnd(2.0f) - 1.0f, 2.0f);
@@ -929,7 +941,9 @@ void DrawScreen() {
       p_arp_mod += frnd(0.1f) - 0.05f;
     do_play = true;
   }
+  // }}}1
 
+  // volume, play, save, etc {{{1
   DrawText(515, 170, 0x000000, "VOLUME");
   DrawBar(490 - 1 - 1 + 60, 180 - 1 + 5, 70, 2, 0x000000);
   DrawBar(490 - 1 - 1 + 60 + 68, 180 - 1 + 5, 2, 205, 0x000000);
@@ -975,6 +989,7 @@ void DrawScreen() {
     else
       wav_bits = 16;
   }
+  // }}}1
 
   int ypos = 4;
 
@@ -1040,6 +1055,7 @@ void DrawScreen() {
 
 bool keydown = false;
 
+// glue stuff {{{1
 extern "C" bool ddkCalcFrame() {
   input->Update(); // WIN32 (for keyboard input)
 
@@ -1106,3 +1122,4 @@ extern "C" void ddkFree() {
   free(ld48.data);
   free(font.data);
 }
+// }}}1
