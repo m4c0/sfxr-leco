@@ -991,6 +991,7 @@ void DrawScreen() {
   }
   // }}}1
 
+  // sliders {{{1
   int ypos = 4;
 
   int xpos = 350;
@@ -1043,6 +1044,7 @@ void DrawScreen() {
 
   DrawBar(xpos - 190, 4 * 18 - 5, 1, (ypos - 4) * 18, 0x0000000);
   DrawBar(xpos - 190 + 299, 4 * 18 - 5, 1, (ypos - 4) * 18, 0x0000000);
+  // }}}1
 
   if (do_play)
     PlaySample();
