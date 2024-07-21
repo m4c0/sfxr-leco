@@ -7,6 +7,11 @@ import silog;
 import vee;
 import voo;
 
+extern "C" void audio_callback(float *buf, int size);
+static void fill_buffer(float *f, unsigned num_samples) {
+  audio_callback(f, num_samples);
+}
+
 export namespace lek {
 constexpr const auto ddkpitch = 640;
 
@@ -25,14 +30,10 @@ void ddkSetMode(int width, int height, int bpp, int refreshrate, int fullscreen,
   // init texture? pretend we care?
 }
 
-extern "C" void audio_callback(float *buf, int size);
-class audio : public siaudio::os_streamer {
-public:
-  void fill_buffer(float *f, unsigned num_samples) override {
-    audio_callback(f, num_samples);
-  }
-};
-void InitAudio() { static audio a{}; }
+void InitAudio() {
+  siaudio::filler(fill_buffer);
+  siaudio::rate(44100);
+}
 
 class DPInput {
 public:
@@ -47,33 +48,8 @@ extern "C" bool ddkCalcFrame();
 extern "C" void ddkFree();
 
 class thread : public voo::casein_thread {
-  unsigned m_sw;
-  unsigned m_sh;
-
-protected:
-  void resize_window(const casein::events::resize_window &e) override {
-    m_sw = (*e).width;
-    m_sh = (*e).height;
-    voo::casein_thread::resize_window(e);
-  }
-  void mouse_down(const casein::events::mouse_down &e) override {
-    lek::mouse_left = true;
-    lek::mouse_leftclick = true;
-  }
-  void mouse_up(const casein::events::mouse_up &e) override {
-    lek::mouse_left = false;
-  }
-  void mouse_move(const casein::events::mouse_move &e) override {
-    using namespace lek;
-
-    mouse_px = mouse_x;
-    mouse_x = (*e).x * 640 / m_sw;
-
-    mouse_py = mouse_y;
-    mouse_y = (*e).y * 480 / m_sh;
-  }
   void run() override {
-    voo::device_and_queue dq{"sfxr", native_ptr()};
+    voo::device_and_queue dq{"sfxr"};
     voo::one_quad quad{dq.physical_device()};
 
     vee::descriptor_set_layout dsl =
@@ -89,14 +65,13 @@ protected:
 
     ddkInit();
 
-    auto cb = vee::allocate_primary_command_buffer(dq.command_pool());
     while (!interrupted()) {
       voo::swapchain_and_stuff sw{dq};
 
       auto pl = vee::create_pipeline_layout({*dsl});
       auto gp = vee::create_graphics_pipeline({
           .pipeline_layout = *pl,
-          .render_pass = sw.render_pass(),
+          .render_pass = dq.render_pass(),
           .shaders{
               voo::shader("lek.vert.spv").pipeline_vert_stage(),
               voo::shader("lek.frag.spv").pipeline_frag_stage(),
@@ -105,44 +80,55 @@ protected:
           .attributes{quad.vertex_attribute(0)},
       });
 
-      resized() = false;
-      while (!interrupted() && !resized()) {
-        sw.acquire_next_image();
-
+      extent_loop(dq.queue(), sw, [&] {
         {
           lek::redrawing = false;
           ddkCalcFrame();
           lek::mouse_leftclick = false;
           if (lek::redrawing) {
-            auto m = img.mapmem();
+            auto m = voo::mapmem(img.host_memory());
             auto mm = static_cast<unsigned *>(*m);
             for (auto x = 0; x < 480 * 640; x++)
               mm[x] = lek::ddkscreen32[x] | 0xff000000;
           }
         }
 
-        {
-          voo::cmd_buf_one_time_submit pcb{cb};
-          img.run(pcb);
+        sw.queue_one_time_submit(dq.queue(), [&](auto pcb) {
+          img.setup_copy(*pcb);
 
-          auto scb = sw.cmd_render_pass(cb);
-          vee::cmd_bind_gr_pipeline(cb, *gp);
-          vee::cmd_bind_descriptor_set(cb, *pl, 0, dset);
-          quad.run(scb, 0);
-        }
-
-        sw.queue_submit(dq.queue(), cb);
-        sw.queue_present(dq.queue());
-      }
-
-      vee::device_wait_idle();
+          auto scb = sw.cmd_render_pass(pcb);
+          vee::cmd_set_viewport(*scb, sw.extent());
+          vee::cmd_set_scissor(*scb, sw.extent());
+          vee::cmd_bind_gr_pipeline(*scb, *gp);
+          vee::cmd_bind_descriptor_set(*scb, *pl, 0, dset);
+          quad.run(*scb, 0);
+        });
+      });
     }
 
     ddkFree();
   }
 };
 
-extern "C" void casein_handle(const casein::event &e) {
-  static thread t{};
-  t.handle(e);
-}
+struct init {
+  init() {
+    using namespace casein;
+
+    handle(MOUSE_DOWN, [] {
+      lek::mouse_left = true;
+      lek::mouse_leftclick = true;
+    });
+    handle(MOUSE_UP, [] { lek::mouse_left = false; });
+    handle(MOUSE_MOVE, [] {
+      using namespace lek;
+
+      mouse_px = mouse_x;
+      mouse_x = casein::mouse_pos.x * 640 / casein::window_size.x;
+
+      mouse_py = mouse_y;
+      mouse_y = casein::mouse_pos.y * 480 / casein::window_size.y;
+    });
+
+    static thread t{};
+  }
+} i;
