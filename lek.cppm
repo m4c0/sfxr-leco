@@ -1,5 +1,7 @@
 #pragma leco add_shader "lek.frag"
 #pragma leco add_shader "lek.vert"
+#pragma leco add_resource "font.tga"
+#pragma leco add_resource "ld48.tga"
 export module lek;
 import casein;
 import siaudio;
